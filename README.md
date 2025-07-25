@@ -1,8 +1,6 @@
-# Comic Translate
+# Comic Translate optimized for EN to FR 
 
 English | [한국어](docs/README_ko.md) | [Français](docs/README_fr.md) | [简体中文](docs/README_zh-CN.md) | [日本語](docs/README_ja.md) | [Português Brasileiro](docs/README_pt-BR.md)
-
-<img src="https://i.imgur.com/QUVK6mK.png">
 
 ## Intro
 
@@ -37,38 +35,6 @@ This is very apparent for distant language pairs (Korean<->English, Japanese<->E
 Excerpt from "The Walking Practice"(보행 연습) by Dolki Min(돌기민)
 ![Model](https://i.imgur.com/72jvLBa.png)
 
-## Comic Samples
-
-GPT-4 as Translator.
-Note: Some of these also have Official English Translations
-
-[The Wretched of the High Seas](https://www.drakoo.fr/bd/drakoo/les_damnes_du_grand_large/les_damnes_du_grand_large_-_histoire_complete/9782382330128)
-
-<img src="https://i.imgur.com/75HwK4r.jpg" width="49%"> <img src="https://i.imgur.com/3oRt5fX.jpg" width="49%">
-
-[Journey to the West](https://ac.qq.com/Comic/comicInfo/id/541812)
-
-<img src="https://i.imgur.com/zk7yiKe.jpg" width="49%"> <img src="https://i.imgur.com/4ycSi8j.jpg" width="49%">
-
-[The Wormworld Saga](https://wormworldsaga.com/index.php)
-
-<img src="https://i.imgur.com/cVVGVXp.jpg" width="49%"> <img src="https://i.imgur.com/SSl81sb.jpg" width="49%">
-
-[Frieren: Beyond Journey&#39;s End](https://renta.papy.co.jp/renta/sc/frm/item/220775/title/742932/)
-
-<img src="https://i.imgur.com/ANGHVhG.png" width="49%"> <img src="https://i.imgur.com/r5YOE26.png" width="49%">
-
-[Days of Sand](https://9ekunst.nl/2021/05/20/nieuw-album-van-aimee-de-jongh-is-benauwend-als-een-zandstorm/)
-
-<img src="https://i.imgur.com/m7PDiXN.jpg" width="49%"> <img src="https://i.imgur.com/eUwTGnn.jpg" width="49%">
-
-[Player (OH Hyeon-Jun)](https://comic.naver.com/webtoon/list?titleId=745876&page=1&sort=ASC&tab=fri)
-
-<img src="https://i.imgur.com/KGwiHJh.jpg" width="49%"> <img src="https://i.imgur.com/B8RMbRQ.jpg" width="49%">
-
-[Carbon &amp; Silicon](https://www.amazon.com/Carbone-Silicium-French-Mathieu-Bablet-ebook/dp/B0C1LTGZ85/)
-
-<img src="https://i.imgur.com/h51XJx4.jpg" width="49%"> <img src="https://i.imgur.com/sLitjUY.jpg" width="49%">
 
 ## Installation
 
