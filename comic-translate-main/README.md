@@ -206,12 +206,35 @@ Wrapped text in bounding boxes obtained from bubbles and text.
 pip install torch transformers easyocr
 ```
 
-## Traduction locale (HuggingFace Transformers)
+## Traduction locale (HuggingFace, LLM, Ollama)
 
 - Dans les paramètres de l’application, sélectionnez **"Traduction Locale"** comme moteur de traduction.
-- Par défaut, le modèle utilisé est `facebook/nllb-200-distilled-600M` (multilingue, efficace sur CPU <8GB RAM).
-- Vous pouvez changer le modèle dans la configuration avancée si besoin (voir le paramètre `local_transformers_model`).
-- La traduction s’effectue alors entièrement en local, sans connexion internet.
+- Dans la section "Modèle local (LLM/Traduction)", choisissez le **type de modèle** :
+  - **Seq2Seq (Traduction)** : pour les modèles de traduction HuggingFace (ex : NLLB, MarianMT, Helsinki-NLP, etc.)
+  - **CausalLM (LLM)** : pour les modèles de génération de texte HuggingFace (ex : Llama, Mistral, GPT2, etc.)
+  - **Ollama** : pour utiliser un modèle LLM via l’API Ollama (local, open source)
+
+### Utiliser un modèle HuggingFace (Seq2Seq ou CausalLM)
+- Déposez le dossier du modèle téléchargé dans un dossier local.
+- Sélectionnez ce dossier via le bouton dans les paramètres.
+- Pour Seq2Seq, le pipeline de traduction HuggingFace sera utilisé.
+- Pour CausalLM, le pipeline de génération de texte HuggingFace sera utilisé (prompt : "Traduire en <langue> : <texte>").
+
+### Utiliser un modèle Ollama
+- Installez Ollama sur votre machine : https://ollama.com/
+- Téléchargez un modèle compatible (ex : llama2, mistral, phi3, etc.) avec la commande :
+  ```bash
+  ollama pull mistral
+  ollama pull llama2
+  # etc.
+  ```
+- Dans les paramètres, choisissez "Ollama" comme type de modèle.
+- Renseignez l’URL de l’API Ollama (par défaut : http://localhost:11434) et le nom du modèle (ex : llama2, mistral).
+- Le prompt envoyé à Ollama sera : "Traduire en <langue> : <texte>".
+
+**Remarque :**
+- Vous pouvez utiliser n’importe quel modèle compatible avec le pipeline HuggingFace ou Ollama.
+- Les performances et la qualité dépendent du modèle choisi et de la puissance de votre machine.
 
 ## OCR local (EasyOCR)
 

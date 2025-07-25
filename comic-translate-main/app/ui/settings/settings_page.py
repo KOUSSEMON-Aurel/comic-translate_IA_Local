@@ -130,11 +130,11 @@ class SettingsPage(QtWidgets.QWidget):
         return settings
 
     def get_all_settings(self):
-        # Définit le chemin local par défaut si le champ est vide
-        local_model_default = r"C:/Users/Aurel_Dexgun/Downloads/models/nllb-200-distilled-600M"
         local_model_path = self.get_credentials('Custom').get('local_transformers_model', '')
-        if not local_model_path:
-            local_model_path = local_model_default
+        # Ajout récupération du type de modèle et des champs Ollama
+        local_model_type = self.get_credentials('Custom').get('local_model_type', 'Seq2Seq (Traduction)')
+        ollama_url = self.get_credentials('Custom').get('ollama_url', '')
+        ollama_model = self.get_credentials('Custom').get('ollama_model', '')
         return {
             'language': self.get_language(),
             'theme': self.get_theme(),
@@ -150,7 +150,10 @@ class SettingsPage(QtWidgets.QWidget):
             'export': self.get_export_settings(),
             'credentials': self.get_credentials(),
             'save_keys': self.ui.save_keys_checkbox.isChecked(),
-            'local_transformers_model': local_model_path
+            'local_transformers_model': local_model_path,
+            'local_model_type': local_model_type,
+            'ollama_url': ollama_url,
+            'ollama_model': ollama_model
         }
 
     def import_font(self, file_paths: List[str]):
@@ -234,6 +237,9 @@ class SettingsPage(QtWidgets.QWidget):
                     settings.setValue(f"{translated_service}_api_url", cred['api_url'])
                     settings.setValue(f"{translated_service}_model", cred['model'])
                     settings.setValue(f"{translated_service}_local_transformers_model", cred['local_transformers_model'])
+                    settings.setValue(f"{translated_service}_local_model_type", cred.get('local_model_type', 'Seq2Seq (Traduction)'))
+                    settings.setValue(f"{translated_service}_ollama_url", cred.get('ollama_url', ''))
+                    settings.setValue(f"{translated_service}_ollama_model", cred.get('ollama_model', ''))
                 else:
                     settings.setValue(f"{translated_service}_api_key", cred['api_key'])
         else:
@@ -330,6 +336,10 @@ class SettingsPage(QtWidgets.QWidget):
                     self.ui.credential_widgets[f"{service}_api_url"].setText(settings.value(f"{translated_service}_api_url", ''))
                     self.ui.credential_widgets[f"{service}_model"].setText(settings.value(f"{translated_service}_model", ''))
                     self.ui.credential_widgets[f"{service}_local_transformers_model"].setText(settings.value(f"{translated_service}_local_transformers_model", ''))
+                    # Correction pour la combo box du type de modèle local (MComboBox)
+                    self.ui.credential_widgets[f"{service}_local_model_type"].setCurrentText(settings.value(f"{translated_service}_local_model_type", 'Seq2Seq (Traduction)'))
+                    self.ui.credential_widgets[f"{service}_ollama_url"].setText(settings.value(f"{translated_service}_ollama_url", ''))
+                    self.ui.credential_widgets[f"{service}_ollama_model"].setText(settings.value(f"{translated_service}_ollama_model", ''))
                 else:
                     self.ui.credential_widgets[f"{service}_api_key"].setText(settings.value(f"{translated_service}_api_key", ''))
         settings.endGroup()

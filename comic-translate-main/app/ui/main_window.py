@@ -11,7 +11,7 @@ from .dayu_widgets.combo_box import MComboBox, MFontComboBox
 from .dayu_widgets.check_box import MCheckBox
 from .dayu_widgets.text_edit import MTextEdit
 from .dayu_widgets.line_edit import MLineEdit
-from .dayu_widgets.browser import MDragFileButton, MClickBrowserFileToolButton, MClickSaveFileToolButton
+from .dayu_widgets.browser import MDragFileButton, MClickBrowserFileToolButton, MClickSaveFileToolButton, MClickBrowserFolderToolButton
 from .dayu_widgets.push_button import MPushButton
 from .dayu_widgets.tool_button import MToolButton
 from .dayu_widgets.radio_button import MRadioButton
@@ -197,6 +197,12 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
 
         project_action = self.tool_menu.addAction(MIcon("ct-file-icon.svg"), self.tr("Project File"))
         project_action.triggered.connect(self.project_browser_button.clicked)
+
+        # Ajout d'un bouton pour sélectionner un dossier d'images à traduire
+        self.folder_browser_button = MClickBrowserFolderToolButton(multiple=False)
+        self.folder_browser_button.setToolTip(self.tr("Importer un dossier d'images à traduire"))
+        nav_rail_layout.addWidget(self.folder_browser_button)
+        self.folder_browser_button.sig_folder_changed.connect(self.on_folder_selected)
 
         # Rest of the code remains the same
         self.save_browser = MClickSaveFileToolButton()
@@ -800,4 +806,79 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
             if index != -1:
                 self.font_dropdown.setCurrentIndex(index)
         
+    def on_folder_selected(self, folder_path):
+        if not folder_path or not os.path.isdir(folder_path):
+            return
+        image_exts = ['.png', '.jpg', '.jpeg', '.webp', '.bmp']
+        image_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path)
+                       if os.path.splitext(f)[1].lower() in image_exts]
+        if not image_files:
+            QtWidgets.QMessageBox.warning(self, self.tr("Aucune image trouvée"), self.tr("Le dossier sélectionné ne contient aucune image supportée."))
+            return
+        # Demande à l'utilisateur où enregistrer les résultats
+        dest_dir = QtWidgets.QFileDialog.getExistingDirectory(self, self.tr("Choisir le dossier de destination"), folder_path)
+        if not dest_dir:
+            return
+        self.batch_output_dir = dest_dir
+        # Ajoute les images à la liste et lance le batch
+        self.image_files = image_files
+        self.image_states = {
+            img: {
+                'source_lang': self.settings_page.get_language(),
+                'target_lang': self.settings_page.get_language(),
+                'viewer_state': {},
+            }
+            for img in image_files
+        }
+        self.start_batch_process()
+
+    def start_batch_process(self):
+        if not self.image_files:
+            return
+
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(True)
+        self.loading.setVisible(True)
+        self.translate_button.setEnabled(False)
+        self.cancel_button.setEnabled(True)
+
+        self.image_viewer.clear_all_boxes()
+        self.image_viewer.clear_all_brush_strokes()
+
+        self.batch_process_thread = BatchProcessThread(self.image_files, self.image_states, self.s_combo.currentText(), self.t_combo.currentText(),
+                                                       self.s_text_edit.toPlainText(), self.t_text_edit.toPlainText(),
+                                                       self.font_dropdown.currentFont(), self.font_size_dropdown.currentText(),
+                                                       self.line_spacing_dropdown.currentText(), self.block_font_color_button.property('selected_color'),
+                                                       self.alignment_tool_group.get_checked_button_index(), self.bold_button.isChecked(),
+                                                       self.italic_button.isChecked(), self.underline_button.isChecked(),
+                                                       self.outline_checkbox.isChecked(), self.outline_font_color_button.property('selected_color'),
+                                                       self.outline_width_dropdown.currentText(), self.brush_eraser_slider.value(),
+                                                       self.brush_button.isChecked(), self.eraser_button.isChecked(),
+                                                       self.manual_radio.isChecked(), self.automatic_radio.isChecked())
+        
+        self.batch_process_thread.finished.connect(self.batch_process_finished)
+        self.batch_process_thread.progress.connect(self.update_progress)
+        self.batch_process_thread.error.connect(self.show_error)
+        self.batch_process_thread.start()
+
+    def update_progress(self, current, total):
+        self.progress_bar.setValue(int((current / total) * 100))
+        self.loading.setText(f"{current}/{total}")
+
+    def batch_process_finished(self):
+        self.progress_bar.setVisible(False)
+        self.loading.setVisible(False)
+        self.translate_button.setEnabled(True)
+        self.cancel_button.setEnabled(False)
+        self.image_viewer.update_image() # Refresh the image viewer with the final result
+        self.page_list.update_list() # Update the page list with the new images
+        QtWidgets.QMessageBox.information(self, self.tr("Batch Process Finished"), self.tr("All images have been processed."))
+
+    def show_error(self, message):
+        self.progress_bar.setVisible(False)
+        self.loading.setVisible(False)
+        self.translate_button.setEnabled(True)
+        self.cancel_button.setEnabled(False)
+        QtWidgets.QMessageBox.critical(self, self.tr("Error"), message)
+
 

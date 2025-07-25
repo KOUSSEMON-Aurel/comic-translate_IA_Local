@@ -13,16 +13,41 @@ from .gemini_ocr import GeminiOCR
 from .easy_ocr import EasyOCREngine
 from huggingface_hub import snapshot_download
 
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 
-model_path = r"C:/Users/Aurel_Dexgun/Downloads/models/nllb-200-distilled-600M"
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
-translator = pipeline('translation', model=model, tokenizer=tokenizer, device=-1)
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+from pathlib import Path
+
+
+# Fonction utilitaire pour charger le traducteur local à la demande
+def get_local_translator(model_path=None):
+    if not model_path:
+        raise ValueError("Aucun chemin de modèle local HuggingFace n'a été fourni à get_local_translator.")
+    tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
+    model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path), local_files_only=True)
+    return pipeline('translation', model=model, tokenizer=tokenizer, device=-1)
 
 # SUPPRESSION DU TEST MANUEL
 
 from PySide6 import QtWidgets
+
+# --- TEST MINIMAL DE TRADUCTION LOCALE ---
+if __name__ == "__main__":
+    print("[TEST] Test minimal du pipeline de traduction HuggingFace local...")
+    translator = get_local_translator()
+    print(f"[TEST] Type pipeline: {type(translator)}")
+    # Codes de langue NLLB-200: voir https://huggingface.co/facebook/nllb-200-distilled-600M#languages
+    src = "fra_Latn"
+    tgt = "eng_Latn"
+    test_text = "Bonjour, comment vas-tu ?"
+    try:
+        result = translator(test_text, src_lang=src, tgt_lang=tgt, max_length=128)
+        print(f"[TEST] Résultat pipeline: {result}")
+        if result and isinstance(result, list) and 'translation_text' in result[0]:
+            print(f"[TEST] Traduction: {result[0]['translation_text']}")
+        else:
+            print(f"[TEST] Format inattendu: {result}")
+    except Exception as e:
+        print(f"[TEST][CRITICAL] Erreur lors de la traduction: {e}")
 from app.ui.dayu_widgets.label import MLabel
 from app.ui.dayu_widgets.check_box import MCheckBox
 from app.ui.dayu_widgets.spin_box import MSpinBox

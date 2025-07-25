@@ -1,9 +1,12 @@
+
 from typing import Any
 import torch
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
+import requests
 import psutil
 import os
 import time
+from pathlib import Path
 
 from .base import TraditionalTranslation
 from ..utils.textblock import TextBlock
@@ -34,22 +37,37 @@ class LocalTransformersTranslation(TraditionalTranslation):
     def initialize(self, settings: Any, source_lang: str, target_lang: str) -> None:
         self.source_lang = source_lang
         self.target_lang = target_lang
-        # Priorité au champ local_transformers_model dans settings ou credentials
-        model_name = None
+        model_type = getattr(settings, 'local_model_type', 'Seq2Seq (Traduction)')
         if hasattr(settings, 'local_transformers_model') and settings.local_transformers_model:
             model_name = settings.local_transformers_model
         elif hasattr(settings, 'get_credentials'):
             creds = settings.get_credentials('Custom')
             if creds and 'local_transformers_model' in creds and creds['local_transformers_model']:
                 model_name = creds['local_transformers_model']
-        # FORCÉ : chemin local du modèle
-        self.model_name = r"C:/Users/Aurel_Dexgun/Downloads/models/nllb-200-distilled-600M"
+            else:
+                model_name = None
+        else:
+            model_name = None
+        if model_type == 'Ollama':
+            self.model_name = None
+            self.ollama_url = getattr(settings, 'ollama_url', 'http://localhost:11434')
+            self.ollama_model = getattr(settings, 'ollama_model', 'llama2')
+            print(f"[DEBUG] Utilisation d'Ollama : url={self.ollama_url}, modèle={self.ollama_model}")
+            self.translator = None  # Pas de pipeline HuggingFace
+            return
+        if not model_name:
+            raise ValueError("Aucun chemin de modèle local HuggingFace n'a été fourni dans les paramètres.")
+        self.model_name = model_name
         print(f"[DEBUG] Chemin du modèle utilisé pour la traduction locale : {self.model_name}")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
         self.device = torch.device('cpu')
-        self.model = self.model.to(self.device)
-        self.translator = pipeline('translation', model=self.model, tokenizer=self.tokenizer, device=-1)
+        if model_type == 'CausalLM (LLM)':
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, local_files_only=True)
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_name, local_files_only=True).to(self.device)
+            self.translator = pipeline('text-generation', model=self.model, tokenizer=self.tokenizer, device=-1)
+        else:  # Seq2Seq (Traduction)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, local_files_only=True)
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name, local_files_only=True).to(self.device)
+            self.translator = pipeline('translation', model=self.model, tokenizer=self.tokenizer, device=-1)
 
     def _nllb_lang_code(self, lang: str) -> str:
         # Mapping minimal pour NLLB (à étendre selon besoin)
@@ -61,40 +79,55 @@ class LocalTransformersTranslation(TraditionalTranslation):
         return mapping.get(lang, lang)
 
     def translate(self, blk_list: list[TextBlock]) -> list[TextBlock]:
-        print("[DEBUG] Début de la traduction locale (HuggingFace)")
+        print("[DEBUG] Début de la traduction locale (HuggingFace/LLM/Ollama)")
         src_code = self.get_language_code(self.source_lang)
         tgt_code = self.get_language_code(self.target_lang)
         nllb_src = self._nllb_lang_code(src_code)
         nllb_tgt = self._nllb_lang_code(tgt_code)
-        print(f"[DEBUG] Langues : source={self.source_lang} ({src_code} -> {nllb_src}), cible={self.target_lang} ({tgt_code} -> {nllb_tgt})")
+        model_type = getattr(self, 'model_type', None)
+        if hasattr(self, 'ollama_url') and self.ollama_url:
+            # Utilisation d'Ollama
+            for i, blk in enumerate(blk_list):
+                limiter_ressources()
+                prompt = f"Traduire en {self.target_lang} : {blk.text}"
+                try:
+                    response = requests.post(
+                        f"{self.ollama_url}/api/generate",
+                        json={"model": self.ollama_model, "prompt": prompt, "stream": False},
+                        timeout=30
+                    )
+                    if response.ok:
+                        data = response.json()
+                        blk.translation = data.get('response', '[Erreur Ollama: pas de réponse]')
+                    else:
+                        blk.translation = f"[Erreur Ollama: {response.status_code}]"
+                except Exception as e:
+                    blk.translation = f"[Erreur Ollama: {e}]"
+            return blk_list
+        # Sinon, pipeline HuggingFace
         try:
             for i, blk in enumerate(blk_list):
-                # --- AJOUT : Contrôle des ressources avant chaque opération lourde ---
                 limiter_ressources()
-                
                 text = self.preprocess_text(blk.text, src_code)
                 print(f"[DEBUG] Bloc {i} : texte à traduire = {repr(text)}")
                 try:
                     process = psutil.Process(os.getpid())
                     ram_before_gb = process.memory_info().rss / (1024 ** 3)
                     print(f"[INFO] RAM avant traduction du bloc {i}: {ram_before_gb:.2f} Go")
-                    
                     print(f"[DEBUG] Avant appel pipeline HuggingFace pour bloc {i}")
-                    result = self.translator(text, src_lang=nllb_src, tgt_lang=nllb_tgt, max_length=512)
-                    print(f"[DEBUG] Après appel pipeline HuggingFace pour bloc {i} : {result}")
-                    
-                    ram_after_gb = process.memory_info().rss / (1024 ** 3)
-                    print(f"[INFO] RAM après traduction du bloc {i}: {ram_after_gb:.2f} Go")
-                    
-                    blk.translation = result[0]['translation_text']
-                    print(f"[DEBUG] Bloc {i} : traduction = {repr(blk.translation)}")
+                    if hasattr(self, 'translator') and self.translator is not None:
+                        if model_type == 'CausalLM (LLM)':
+                            result = self.translator(text, max_length=256)
+                            blk.translation = result[0]['generated_text'] if result and isinstance(result, list) and 'generated_text' in result[0] else str(result)
+                        else:
+                            result = self.translator(text, src_lang=nllb_src, tgt_lang=nllb_tgt, max_length=256)
+                            blk.translation = result[0]['translation_text'] if result and isinstance(result, list) and 'translation_text' in result[0] else str(result)
+                    else:
+                        blk.translation = '[Erreur: pipeline non initialisé]'
                 except Exception as e:
-                    ram_on_fail_gb = psutil.Process(os.getpid()).memory_info().rss / (1024 ** 3)
-                    print(f"[CRITICAL] Erreur lors de la traduction du bloc {i}. RAM: {ram_on_fail_gb:.2f} Go. Erreur: {e}")
                     blk.translation = f"[Erreur traduction: {e}]"
-
-            print("[DEBUG] Traduction locale terminée")
+            return blk_list
         except Exception as e:
-            print(f"[CRITICAL] Erreur globale dans la traduction locale : {e}")
-        print("[DEBUG] Fin de la méthode translate")
-        return blk_list 
+            for blk in blk_list:
+                blk.translation = f"[Erreur traduction: {e}]"
+            return blk_list 

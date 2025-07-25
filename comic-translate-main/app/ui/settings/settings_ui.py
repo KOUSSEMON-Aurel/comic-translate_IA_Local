@@ -455,15 +455,78 @@ class SettingsPageUI(QtWidgets.QWidget):
                 
                 self.credential_widgets[f"{service}_model"] = model_input
 
-                # Chemin modèle local HuggingFace
+                # --- Séparateur et titre pour la section modèle local HuggingFace ---
+                service_layout.addSpacing(15)
+                local_model_section_title = MLabel(self.tr("Modèle local (LLM/Traduction)")).secondary().h4()
+                local_model_section_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+                service_layout.addWidget(local_model_section_title)
+                service_layout.addSpacing(5)
+
+                # Choix du type de modèle
+                from ..dayu_widgets.combo_box import MComboBox
+                model_type_combo = MComboBox()
+                model_type_combo.addItems(["Seq2Seq (Traduction)", "CausalLM (LLM)", "Ollama"])
+                model_type_combo.setCurrentIndex(0)
+                model_type_label = MLabel(self.tr("Type de modèle local")).border()
+                self.set_label_width(model_type_label)
+                model_type_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+                model_type_layout = QtWidgets.QHBoxLayout()
+                model_type_layout.addWidget(model_type_label)
+                model_type_layout.addWidget(model_type_combo)
+                model_type_layout.addStretch(1)
+                service_layout.addLayout(model_type_layout)
+                self.credential_widgets[f"{service}_local_model_type"] = model_type_combo
+
+                # Chemin modèle local HuggingFace (pour Seq2Seq/CausalLM)
                 local_model_path_input = MLineEdit()
-                local_model_path_input.setFixedWidth(400)
+                local_model_path_input.setFixedWidth(320)
                 local_model_path_prefix = MLabel(self.tr("Chemin modèle local (HuggingFace)")).border()
                 self.set_label_width(local_model_path_prefix)
                 local_model_path_prefix.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
                 local_model_path_input.set_prefix_widget(local_model_path_prefix)
-                service_layout.addWidget(local_model_path_input)
+                from ..dayu_widgets.browser import MClickBrowserFolderToolButton
+                local_model_folder_btn = MClickBrowserFolderToolButton()
+                local_model_folder_btn.setToolTip(self.tr("Sélectionner le dossier du modèle HuggingFace"))
+                local_model_folder_btn.setFixedWidth(40)
+                local_model_path_layout = QtWidgets.QHBoxLayout()
+                local_model_path_layout.addWidget(local_model_path_input)
+                local_model_path_layout.addWidget(local_model_folder_btn)
+                local_model_path_layout.addStretch(1)
+                service_layout.addLayout(local_model_path_layout)
                 self.credential_widgets[f"{service}_local_transformers_model"] = local_model_path_input
+                local_model_folder_btn.sig_folder_changed.connect(lambda folder: local_model_path_input.setText(folder))
+
+                # Champs Ollama (URL + nom du modèle)
+                ollama_url_input = MLineEdit()
+                ollama_url_input.setFixedWidth(320)
+                ollama_url_prefix = MLabel(self.tr("Ollama URL")).border()
+                self.set_label_width(ollama_url_prefix)
+                ollama_url_prefix.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+                ollama_url_input.set_prefix_widget(ollama_url_prefix)
+                ollama_model_input = MLineEdit()
+                ollama_model_input.setFixedWidth(320)
+                ollama_model_prefix = MLabel(self.tr("Nom du modèle Ollama")).border()
+                self.set_label_width(ollama_model_prefix)
+                ollama_model_prefix.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+                ollama_model_input.set_prefix_widget(ollama_model_prefix)
+                ollama_layout = QtWidgets.QVBoxLayout()
+                ollama_layout.addWidget(ollama_url_input)
+                ollama_layout.addWidget(ollama_model_input)
+                service_layout.addLayout(ollama_layout)
+                self.credential_widgets[f"{service}_ollama_url"] = ollama_url_input
+                self.credential_widgets[f"{service}_ollama_model"] = ollama_model_input
+                # Par défaut, cacher les champs Ollama
+                ollama_url_input.hide()
+                ollama_model_input.hide()
+
+                # Afficher/masquer selon le type de modèle choisi
+                def on_model_type_changed(idx):
+                    is_ollama = (idx == 2)
+                    ollama_url_input.setVisible(is_ollama)
+                    ollama_model_input.setVisible(is_ollama)
+                    local_model_path_input.setVisible(not is_ollama)
+                    local_model_folder_btn.setVisible(not is_ollama)
+                model_type_combo.currentIndexChanged.connect(on_model_type_changed)
 
             elif service == "Yandex":
                 # API Key

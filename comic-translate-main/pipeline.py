@@ -616,6 +616,9 @@ class ComicTranslatePipeline:
         image_list = selected_paths if selected_paths is not None else self.main_page.image_files
         total_images = len(image_list)
 
+        # Utilise le dossier de destination personnalisé si défini
+        output_base_dir = getattr(self.main_page, 'batch_output_dir', None)
+
         for index, image_path in enumerate(image_list):
             limiter_ressources()
 
@@ -636,8 +639,12 @@ class ComicTranslatePipeline:
             trg_lng_cd = get_language_code(target_lang_en)
             
             base_name = os.path.splitext(os.path.basename(image_path))[0]
-            extension = os.path.splitext(image_path)[1]
+            extension = os.path.splitext(os.path.basename(image_path))[1]
             directory = os.path.dirname(image_path)
+
+            # Utilise le dossier de destination personnalisé si défini
+            if output_base_dir:
+                directory = output_base_dir
 
             archive_bname = ""
             for archive in self.main_page.file_handler.archive_info:
