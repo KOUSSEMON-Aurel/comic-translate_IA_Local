@@ -807,19 +807,20 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
                 self.font_dropdown.setCurrentIndex(index)
         
     def on_folder_selected(self, folder_path):
-        if not folder_path or not os.path.isdir(folder_path):
+        from pathlib import Path
+        folder_path = Path(folder_path)
+        if not folder_path.exists() or not folder_path.is_dir():
             return
         image_exts = ['.png', '.jpg', '.jpeg', '.webp', '.bmp']
-        image_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path)
-                       if os.path.splitext(f)[1].lower() in image_exts]
+        image_files = [str(f) for f in folder_path.iterdir() if f.suffix.lower() in image_exts and f.is_file()]
         if not image_files:
             QtWidgets.QMessageBox.warning(self, self.tr("Aucune image trouvée"), self.tr("Le dossier sélectionné ne contient aucune image supportée."))
             return
         # Demande à l'utilisateur où enregistrer les résultats
-        dest_dir = QtWidgets.QFileDialog.getExistingDirectory(self, self.tr("Choisir le dossier de destination"), folder_path)
+        dest_dir = QtWidgets.QFileDialog.getExistingDirectory(self, self.tr("Choisir le dossier de destination"), str(folder_path))
         if not dest_dir:
             return
-        self.batch_output_dir = dest_dir
+        self.batch_output_dir = str(Path(dest_dir))
         # Ajoute les images à la liste et lance le batch
         self.image_files = image_files
         self.image_states = {

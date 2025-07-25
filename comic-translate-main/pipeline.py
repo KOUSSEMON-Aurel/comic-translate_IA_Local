@@ -10,6 +10,7 @@ from PySide6 import QtCore
 from PySide6.QtGui import QColor
 import psutil
 import time
+from pathlib import Path
 
 from modules.detection.processor import TextBlockDetector
 from modules.ocr.processor import OCRProcessor
@@ -600,13 +601,13 @@ class ComicTranslatePipeline:
                 set_upper_case(self.main_page.blk_list, upper_case)
 
     def skip_save(self, directory, timestamp, base_name, extension, archive_bname, image):
-        path = os.path.join(directory, f"comic_translate_{timestamp}", "translated_images", archive_bname)
-        if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-        cv2.imwrite(os.path.join(path, f"{base_name}_translated{extension}"), image)
+        path = Path(directory) / f"comic_translate_{timestamp}" / "translated_images" / archive_bname
+        path.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(path / f"{base_name}_translated{extension}"), image)
 
     def log_skipped_image(self, directory, timestamp, image_path, reason=""):
-        skipped_file = os.path.join(directory, f"comic_translate_{timestamp}", "skipped_images.txt")
+        skipped_file = Path(directory) / f"comic_translate_{timestamp}" / "skipped_images.txt"
+        skipped_file.parent.mkdir(parents=True, exist_ok=True)
         with open(skipped_file, 'a', encoding='UTF-8') as file:
             file.write(image_path + "\n")
             file.write(reason + "\n\n")
@@ -618,6 +619,8 @@ class ComicTranslatePipeline:
 
         # Utilise le dossier de destination personnalisé si défini
         output_base_dir = getattr(self.main_page, 'batch_output_dir', None)
+        if output_base_dir:
+            output_base_dir = Path(output_base_dir)
 
         for index, image_path in enumerate(image_list):
             limiter_ressources()
@@ -638,9 +641,10 @@ class ComicTranslatePipeline:
             target_lang_en = self.main_page.lang_mapping.get(target_lang, None)
             trg_lng_cd = get_language_code(target_lang_en)
             
-            base_name = os.path.splitext(os.path.basename(image_path))[0]
-            extension = os.path.splitext(os.path.basename(image_path))[1]
-            directory = os.path.dirname(image_path)
+            img_path = Path(image_path)
+            base_name = img_path.stem
+            extension = img_path.suffix
+            directory = img_path.parent
 
             # Utilise le dossier de destination personnalisé si défini
             if output_base_dir:
@@ -655,10 +659,10 @@ class ComicTranslatePipeline:
                 for img_pth in images:
                     limiter_ressources()
                     if img_pth == image_path:
-                        directory = os.path.dirname(archive_path)
-                        archive_bname = os.path.splitext(os.path.basename(archive_path))[0]
+                        directory = Path(archive_path).parent
+                        archive_bname = Path(archive_path).stem
 
-            image = cv2.imread(image_path)
+            image = cv2.imread(str(img_path))
 
             # skip UI-skipped images
             state = self.main_page.image_states.get(image_path, {})
@@ -747,10 +751,9 @@ class ComicTranslatePipeline:
             inpaint_input_img = cv2.cvtColor(inpaint_input_img, cv2.COLOR_BGR2RGB)
 
             if export_settings['export_inpainted_image']:
-                path = os.path.join(directory, f"comic_translate_{timestamp}", "cleaned_images", archive_bname)
-                if not os.path.exists(path):
-                    os.makedirs(path, exist_ok=True)
-                cv2.imwrite(os.path.join(path, f"{base_name}_cleaned{extension}"), inpaint_input_img)
+                path = Path(directory) / f"comic_translate_{timestamp}" / "cleaned_images" / archive_bname
+                path.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(path / f"{base_name}_cleaned{extension}"), inpaint_input_img)
 
             self.main_page.progress_update.emit(index, total_images, 5, 10, False)
             if self.main_page.current_worker and self.main_page.current_worker.is_cancelled:
@@ -812,17 +815,15 @@ class ComicTranslatePipeline:
                 continue
 
             if export_settings['export_raw_text']:
-                path = os.path.join(directory, f"comic_translate_{timestamp}", "raw_texts", archive_bname)
-                if not os.path.exists(path):
-                    os.makedirs(path, exist_ok=True)
-                file = open(os.path.join(path, os.path.splitext(os.path.basename(image_path))[0] + "_raw.txt"), 'w', encoding='UTF-8')
+                path = Path(directory) / f"comic_translate_{timestamp}" / "raw_texts" / archive_bname
+                path.mkdir(parents=True, exist_ok=True)
+                file = open(str(path / (os.path.splitext(os.path.basename(image_path))[0] + "_raw.txt")), 'w', encoding='UTF-8')
                 file.write(entire_raw_text)
 
             if export_settings['export_translated_text']:
-                path = os.path.join(directory, f"comic_translate_{timestamp}", "translated_texts", archive_bname)
-                if not os.path.exists(path):
-                    os.makedirs(path, exist_ok=True)
-                file = open(os.path.join(path, os.path.splitext(os.path.basename(image_path))[0] + "_translated.txt"), 'w', encoding='UTF-8')
+                path = Path(directory) / f"comic_translate_{timestamp}" / "translated_texts" / archive_bname
+                path.mkdir(parents=True, exist_ok=True)
+                file = open(str(path / (os.path.splitext(os.path.basename(image_path))[0] + "_translated.txt")), 'w', encoding='UTF-8')
                 file.write(entire_translated_text)
 
             self.main_page.progress_update.emit(index, total_images, 7, 10, False)
@@ -923,10 +924,9 @@ class ComicTranslatePipeline:
             if current_batch_file == file_on_display:
                 self.main_page.blk_list = blk_list
                 
-            render_save_dir = os.path.join(directory, f"comic_translate_{timestamp}", "translated_images", archive_bname)
-            if not os.path.exists(render_save_dir):
-                os.makedirs(render_save_dir, exist_ok=True)
-            sv_pth = os.path.join(render_save_dir, f"{base_name}_translated{extension}")
+            render_save_dir = Path(directory) / f"comic_translate_{timestamp}" / "translated_images" / archive_bname
+            render_save_dir.mkdir(parents=True, exist_ok=True)
+            sv_pth = render_save_dir / f"{base_name}_translated{extension}"
 
             im = cv2.cvtColor(inpaint_input_img, cv2.COLOR_RGB2BGR)
             renderer = ImageSaveRenderer(im)
@@ -956,8 +956,8 @@ class ComicTranslatePipeline:
                 archive_directory = os.path.dirname(archive_path)
                 save_as_ext = f".{save_as_settings[archive_ext.lower()]}"
 
-                save_dir = os.path.join(archive_directory, f"comic_translate_{timestamp}", "translated_images", archive_bname)
-                check_from = os.path.join(archive_directory, f"comic_translate_{timestamp}")
+                save_dir = Path(archive_directory) / f"comic_translate_{timestamp}" / "translated_images" / archive_bname
+                check_from = Path(archive_directory) / f"comic_translate_{timestamp}"
 
                 self.main_page.progress_update.emit(archive_index_input, total_images, 2, 3, True)
                 if self.main_page.current_worker and self.main_page.current_worker.is_cancelled:
